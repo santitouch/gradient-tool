@@ -102,7 +102,7 @@ varying vec2 v_uv;
 
 uniform vec2 u_resolution;
 uniform float u_time;
-uniform vec2 u_;
+uniform vec2 u_mouse;
 
 uniform vec3 c1;
 uniform vec3 c2;
@@ -114,8 +114,8 @@ uniform float u_speed;
 uniform float u_grain;
 uniform float u_grainEnabled;
 
-uniform float u_Strength; // "Focus"
-uniform float u_Radius;   // radius
+uniform float u_mouseStrength; // "Focus"
+uniform float u_mouseRadius;   // radius
 uniform float u_banding;
 
 float hash(vec2 p) {
@@ -168,16 +168,16 @@ void main(){
   // Global slow flow warp
   vec2 flow = vec2(
     fbm(uva * 1.35 + vec2(0.0, t * 0.18)),
-    fbm(uva * 1.35 + vec2(10.0, -t * 0.12))
+    fbm(uva * 1.35 + vec2(10.0, -t * 0.16))
   );
   uva += (flow - 0.5) * u_noise;
 
-  //  (aspect space)
-  vec2 ma = u_;
+  // Mouse (aspect space)
+  vec2 ma = u_mouse;
   ma.x *= aspect;
 
   // Localized "pressure" — NO radial push (avoids cone look)
-  float f = falloff(uva, ma, u_Radius);
+  float f = falloff(uva, ma, u_mouseRadius);
 
   // Two noise samples create a soft vector field around the cursor
   // This looks like liquid displacement rather than a beam
@@ -186,7 +186,7 @@ void main(){
   field.y = fbm(uva * 2.20 + ma * 2.0 + vec2(12.3, -t * 0.30)) - 0.5;
 
   // Strength scaled smoothly by f
-  float amt = u_Strength * 0.10 * f;
+  float amt = u_mouseStrength * 0.10 * f;
   uva += field * amt;
 
   // Directional band gradients
