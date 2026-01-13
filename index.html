@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Interactive Gradient Tool</title>
+  <title>Interactive Gradient Tool (Monopo-style)</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -15,21 +15,19 @@
         <div class="brand__dot"></div>
         <div class="brand__text">
           <div class="brand__title">Gradient Tool</div>
-          <div class="brand__sub">Drag points • Edit colors • Add grain</div>
+          <div class="brand__sub">Mouse lens • Flow warp • Grain</div>
         </div>
       </div>
 
-      <button class="iconbtn" id="togglePanel" title="Toggle panel" aria-label="Toggle panel">
-        ☰
-      </button>
+      <button class="iconbtn" id="togglePanel" title="Toggle panel" aria-label="Toggle panel">☰</button>
     </div>
 
     <section class="section">
       <div class="row">
-        <label class="label">Noise</label>
+        <label class="label">Grain</label>
         <div class="controls">
           <label class="switch">
-            <input type="checkbox" id="noiseEnabled" checked />
+            <input type="checkbox" id="grainEnabled" checked />
             <span class="slider"></span>
           </label>
         </div>
@@ -44,61 +42,42 @@
       </div>
 
       <div class="row">
-        <label class="label" for="warp">Warp</label>
+        <label class="label" for="flow">Flow strength</label>
         <div class="controls">
-          <input id="warp" type="range" min="0" max="1.2" step="0.01" value="0.55" />
-          <span class="val" id="warpVal">0.55</span>
+          <input id="flow" type="range" min="0" max="1.5" step="0.01" value="0.75" />
+          <span class="val" id="flowVal">0.75</span>
         </div>
       </div>
 
       <div class="row">
-        <label class="label" for="speed">Motion speed</label>
+        <label class="label" for="speed">Flow speed</label>
         <div class="controls">
-          <input id="speed" type="range" min="0" max="2" step="0.01" value="0.9" />
-          <span class="val" id="speedVal">0.90</span>
+          <input id="speed" type="range" min="0" max="2.5" step="0.01" value="0.85" />
+          <span class="val" id="speedVal">0.85</span>
         </div>
       </div>
 
       <div class="row">
         <label class="label" for="softness">Softness</label>
         <div class="controls">
-          <input id="softness" type="range" min="0.6" max="6.0" step="0.05" value="2.6" />
-          <span class="val" id="softnessVal">2.60</span>
+          <input id="softness" type="range" min="0.8" max="7.0" step="0.05" value="2.4" />
+          <span class="val" id="softnessVal">2.40</span>
         </div>
       </div>
     </section>
 
     <section class="section">
       <div class="section__header">
-        <div class="section__title">Color points</div>
-        <div class="section__actions">
-          <button class="btn" id="addPoint">+ Add</button>
-          <button class="btn btn--ghost" id="removePoint">– Remove</button>
+        <div class="section__title">Mouse lens</div>
+      </div>
+
+      <div class="row">
+        <label class="label" for="lensSize">Lens size</label>
+        <div class="controls">
+          <input id="lensSize" type="range" min="0.05" max="0.28" step="0.005" value="0.14" />
+          <span class="val" id="lensSizeVal">0.14</span>
         </div>
       </div>
 
-      <div class="hint">
-        Click a point to select it. Drag on canvas to move it.
-      </div>
-
-      <div id="pointsList" class="points"></div>
-    </section>
-
-    <section class="section">
-      <div class="section__header">
-        <div class="section__title">Export</div>
-      </div>
-      <div class="export">
-        <button class="btn btn--primary" id="downloadPng">Download PNG</button>
-        <button class="btn btn--ghost" id="copyJson">Copy settings JSON</button>
-        <button class="btn btn--ghost" id="randomize">Randomize</button>
-      </div>
-      <div class="small">
-        Tip: Deploy with GitHub Pages (static site). PNG exports at current canvas size.
-      </div>
-    </section>
-  </aside>
-
-  <script type="module" src="./main.js"></script>
-</body>
-</html>
+      <div class="row">
+        <label class="label" for="lensPower">L
