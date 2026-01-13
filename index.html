@@ -10,85 +10,73 @@
   <div class="stage">
     <canvas id="bg" aria-hidden="true"></canvas>
 
-   
-
-    <!-- Control panel -->
+    <!-- Minimal glass panel -->
     <aside class="panel" id="panel">
       <div class="panel__top">
-        <div class="panel__title">Gradient Tool</div>
+        <div class="panel__title">Gradient</div>
         <button class="iconbtn" id="togglePanel" aria-label="Toggle panel">☰</button>
       </div>
 
-      <div class="group">
-        <div class="group__title">Colors</div>
-
-        <div class="row">
-          <label>Color 1</label>
+      <div class="swatches">
+        <label class="sw">
           <input type="color" id="c1" value="#223BFF" />
-        </div>
-        <div class="row">
-          <label>Color 2</label>
+          <span>1</span>
+        </label>
+        <label class="sw">
           <input type="color" id="c2" value="#FF6A2B" />
-        </div>
-        <div class="row">
-          <label>Color 3</label>
+          <span>2</span>
+        </label>
+        <label class="sw">
           <input type="color" id="c3" value="#0B0B10" />
-        </div>
-        <div class="row">
-          <label>Color 4</label>
+          <span>3</span>
+        </label>
+        <label class="sw">
           <input type="color" id="c4" value="#9CB6C7" />
-        </div>
+          <span>4</span>
+        </label>
 
-        <div class="row">
-          <button class="btn" id="randomize">Randomize palette</button>
-        </div>
+        <button class="btn btn--pill" id="randomize" title="Randomize palette">↻</button>
       </div>
 
-      <div class="group">
-        <div class="group__title">Motion</div>
-
-        <div class="row">
-          <label for="noise">Flow strength</label>
-          <div class="ctrl">
-            <input id="noise" type="range" min="0" max="1.2" step="0.01" value="0.48" />
-            <span id="noiseVal" class="val">0.48</span>
-          </div>
+      <div class="sliders">
+        <div class="srow">
+          <div class="slabel">Flow</div>
+          <input id="noise" type="range" min="0" max="1.2" step="0.01" value="0.48" />
+          <div class="sval" id="noiseVal">0.48</div>
         </div>
 
-        <div class="row">
-          <label for="speed">Flow speed</label>
-          <div class="ctrl">
-            <input id="speed" type="range" min="0" max="2.5" step="0.01" value="0.35" />
-            <span id="speedVal" class="val">0.35</span>
-          </div>
+        <div class="srow">
+          <div class="slabel">Speed</div>
+          <input id="speed" type="range" min="0" max="2.5" step="0.01" value="0.35" />
+          <div class="sval" id="speedVal">0.35</div>
         </div>
 
-        <div class="row">
-          <label for="mouseStrength">Mouse influence</label>
-          <div class="ctrl">
-            <input id="mouseStrength" type="range" min="0" max="0.45" step="0.005" value="0.16" />
-            <span id="mouseStrengthVal" class="val">0.16</span>
-          </div>
+        <div class="srow">
+          <div class="slabel">Focus</div>
+          <input id="mouseStrength" type="range" min="0" max="2.0" step="0.01" value="1.20" />
+          <div class="sval" id="mouseStrengthVal">1.20</div>
         </div>
 
-        <div class="row">
-          <label for="banding">Banding</label>
-          <div class="ctrl">
-            <input id="banding" type="range" min="0.3" max="2.2" step="0.01" value="1.15" />
-            <span id="bandingVal" class="val">1.15</span>
-          </div>
+        <div class="srow">
+          <div class="slabel">Radius</div>
+          <input id="mouseRadius" type="range" min="0.03" max="0.35" step="0.005" value="0.14" />
+          <div class="sval" id="mouseRadiusVal">0.14</div>
         </div>
 
-        <div class="row">
-          <label for="grain">Grain</label>
-          <div class="ctrl">
-            <input id="grain" type="range" min="0" max="0.25" step="0.005" value="0.08" />
-            <span id="grainVal" class="val">0.08</span>
-          </div>
+        <div class="srow">
+          <div class="slabel">Band</div>
+          <input id="banding" type="range" min="0.3" max="2.2" step="0.01" value="1.15" />
+          <div class="sval" id="bandingVal">1.15</div>
         </div>
 
-        <div class="row">
-          <label class="switchLabel">Enable grain</label>
+        <div class="srow">
+          <div class="slabel">Grain</div>
+          <input id="grain" type="range" min="0" max="0.25" step="0.005" value="0.08" />
+          <div class="sval" id="grainVal">0.08</div>
+        </div>
+
+        <div class="toggleRow">
+          <span class="toggleLabel">Grain</span>
           <label class="switch">
             <input type="checkbox" id="grainEnabled" checked />
             <span class="slider"></span>
@@ -96,26 +84,21 @@
         </div>
       </div>
 
-      <div class="group">
-        <div class="group__title">Embed code</div>
+      <details class="embed">
+        <summary>Embed</summary>
 
-        <div class="row">
-          <label for="embedSelector">Mount selector</label>
+        <div class="embed__inner">
           <input id="embedSelector" class="text" type="text" value="#my-gradient" />
+          <div class="embed__btns">
+            <button class="btn btn--primary" id="generateEmbed">Generate</button>
+            <button class="btn btn--ghost" id="copyEmbed">Copy</button>
+          </div>
+          <textarea id="embedOut" class="textarea" rows="7" readonly></textarea>
+          <div class="hint">
+            Add <span class="mono">&lt;div id="my-gradient"&gt;&lt;/div&gt;</span> to your page and include <span class="mono">embed.js</span>.
+          </div>
         </div>
-
-        <div class="row">
-          <button class="btn btn--primary" id="generateEmbed">Generate</button>
-          <button class="btn btn--ghost" id="copyEmbed">Copy</button>
-        </div>
-
-        <textarea id="embedOut" class="textarea" rows="7" readonly></textarea>
-
-        <div class="hint">
-          Put <span class="mono">&lt;div id="my-gradient"&gt;&lt;/div&gt;</span> where you want it.
-          Include <span class="mono">embed.js</span> and the snippet.
-        </div>
-      </div>
+      </details>
     </aside>
 
     <div id="fatalOverlay" class="fatal" hidden></div>
