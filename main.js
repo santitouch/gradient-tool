@@ -1,9 +1,8 @@
-/* fullscreen shader gradient + UI + embed generator
-   - Directional gradient bands
-   - Slow FBM flow warp
-   - Mouse-driven global deformation
-   - Grain toggle
-   - Embeddable snippet generator (uses embed.js)
+/*  Gradient Tool
+   - Directional band gradients + slow flow warp
+   - Focused mouse "pressure" (localized) + subtle swirl
+   - Static grain (pinned to pixels; no movement)
+   - Minimal UI hooks + embed snippet generator (uses embed.js)
 */
 
 (function () {
@@ -28,6 +27,9 @@
     mouseStrength: document.getElementById("mouseStrength"),
     mouseStrengthVal: document.getElementById("mouseStrengthVal"),
 
+    mouseRadius: document.getElementById("mouseRadius"),
+    mouseRadiusVal: document.getElementById("mouseRadiusVal"),
+
     banding: document.getElementById("banding"),
     bandingVal: document.getElementById("bandingVal"),
 
@@ -43,11 +45,23 @@
     embedOut: document.getElementById("embedOut"),
   };
 
-  ui.togglePanel.addEventListener("click", () => ui.panel.classList.toggle("collapsed"));
-
   function fatal(msg) {
+    if (!overlay) {
+      alert(msg);
+      return;
+    }
     overlay.hidden = false;
     overlay.textContent = msg;
+  }
+
+  if (!canvas) {
+    fatal("Canvas #bg not found. Check index.html.");
+    return;
+  }
+
+  // ---- Panel toggle
+  if (ui.togglePanel && ui.panel) {
+    ui.togglePanel.addEventListener("click", () => ui.panel.classList.toggle("collapsed"));
   }
 
   // ---- WebGL setup
@@ -70,7 +84,7 @@
   window.addEventListener("resize", resize);
   resize();
 
-  // ---- Shader sources
+  // ---- Shaders
   const vertSrc = `
     attribute vec2 a_pos;
     varying vec2 v_uv;
@@ -80,7 +94,8 @@
     }
   `;
 
-  // NOTE: arrays not needed; Monopo style is continuous fields + bands
+  // Static grain: uses ONLY gl_FragCoord.xy (no time)
+  // Focused mouse: gaussian falloff around pointer + small swirl
   const fragSrc = `
     precision highp float;
     varying vec2 v_uv;
@@ -98,7 +113,9 @@
     uniform float u_speed;
     uniform float u_grain;
     uniform float u_grainEnabled;
-    uniform float u_mouseStrength;
+
+    uniform float u_mouseStrength; // "Focus"
+    uniform float u_mouseRadius;   // localized radius
     uniform float u_banding;
 
     float hash(vec2 p) {
@@ -129,36 +146,47 @@
       return v;
     }
 
+    float gauss(float d, float r){
+      float rr = max(1e-5, r*r);
+      return exp(-(d*d)/rr);
+    }
+
     void main(){
-      // aspect-correct uv for nicer diagonals
       vec2 uv = v_uv;
+
       float aspect = u_resolution.x / u_resolution.y;
-      uv.x *= aspect;
+      vec2 uva = uv;
+      uva.x *= aspect;
 
       float t = u_time * u_speed;
 
-      // Big, slow flow warp (very low frequency)
+      // Global slow flow warp
       vec2 flow = vec2(
-        fbm(uv * 1.35 + vec2(0.0, t * 0.18)),
-        fbm(uv * 1.35 + vec2(10.0, -t * 0.16))
+        fbm(uva * 1.35 + vec2(0.0, t * 0.18)),
+        fbm(uva * 1.35 + vec2(10.0, -t * 0.16))
       );
+      uva += (flow - 0.5) * u_noise;
 
-      uv += (flow - 0.5) * u_noise;
+      // Focused mouse influence (localized)
+      vec2 ma = u_mouse;
+      ma.x *= aspect;
 
-      // Mouse = global field push (Monopo feel)
-      vec2 m = u_mouse; // 0..1
-      m.x *= aspect;
-      vec2 mcenter = m - vec2(0.5 * aspect, 0.5);
+      float d = distance(uva, ma);
+      float f = gauss(d, u_mouseRadius);
 
-      uv += mcenter * u_mouseStrength;
+      vec2 dir = normalize(uva - ma + 1e-6);
+      vec2 tanv = vec2(-dir.y, dir.x);
 
-      // Directional band gradients (the "large color ramps")
-      // Adjust u_banding for tighter/looser transitions.
-      float g1 = smoothstep(0.0, 1.0, uv.y);
-      float g2 = smoothstep(0.0, 1.0, uv.x / aspect);
-      float g3 = smoothstep(0.0, 1.0, (uv.y + (uv.x / aspect)) * 0.5);
+      float push = u_mouseStrength * f * 0.18;
+      float swirl = u_mouseStrength * f * 0.10 * sin(t * 0.9);
 
-      // extra shaping for that band look
+      uva += dir * push + tanv * swirl;
+
+      // Directional band gradients
+      float g1 = smoothstep(0.0, 1.0, uva.y);
+      float g2 = smoothstep(0.0, 1.0, uva.x / aspect);
+      float g3 = smoothstep(0.0, 1.0, (uva.y + (uva.x / aspect)) * 0.5);
+
       g1 = pow(g1, u_banding);
       g2 = pow(g2, u_banding * 0.92);
       g3 = pow(g3, u_banding * 1.05);
@@ -167,18 +195,18 @@
       col = mix(col, c3, g2 * 0.85);
       col = mix(col, c4, g3 * 0.80);
 
-      // Subtle contrast / softness
+      // subtle softness/contrast
       col = pow(col, vec3(0.96));
       col *= 1.03;
 
-      // vignette (Monopo corners often darker)
-      vec2 p = (v_uv - 0.5);
+      // vignette
+      vec2 p = (uv - 0.5);
       float vig = smoothstep(0.95, 0.25, dot(p,p));
       col *= mix(0.80, 1.0, vig);
 
-      // Grain
+      // STATIC grain (pinned to pixels)
       if (u_grainEnabled > 0.5) {
-        float g = hash(gl_FragCoord.xy + u_time*120.0) - 0.5;
+        float g = hash(gl_FragCoord.xy) - 0.5;
         col += g * u_grain;
       }
 
@@ -221,6 +249,7 @@
     return;
   }
 
+  // Fullscreen quad
   const quad = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
   gl.bufferData(
@@ -231,6 +260,7 @@
 
   const loc = {
     a_pos: gl.getAttribLocation(prog, "a_pos"),
+
     u_resolution: gl.getUniformLocation(prog, "u_resolution"),
     u_time: gl.getUniformLocation(prog, "u_time"),
     u_mouse: gl.getUniformLocation(prog, "u_mouse"),
@@ -244,30 +274,35 @@
     u_speed: gl.getUniformLocation(prog, "u_speed"),
     u_grain: gl.getUniformLocation(prog, "u_grain"),
     u_grainEnabled: gl.getUniformLocation(prog, "u_grainEnabled"),
+
     u_mouseStrength: gl.getUniformLocation(prog, "u_mouseStrength"),
+    u_mouseRadius: gl.getUniformLocation(prog, "u_mouseRadius"),
     u_banding: gl.getUniformLocation(prog, "u_banding"),
   };
 
-  // ---- State
-  const state = {
-    mouse: { x: 0.5, y: 0.5 },
-    mouseTarget: { x: 0.5, y: 0.5 },
-    time: 0,
-  };
-
-  window.addEventListener("mousemove", (e) => {
-    state.mouseTarget.x = e.clientX / window.innerWidth;
-    state.mouseTarget.y = 1.0 - (e.clientY / window.innerHeight);
-  });
-
+  // ---- Helpers
   function hexToRgb01(hex) {
-    const h = hex.replace("#", "").trim();
-    const bigint = parseInt(h.length === 3 ? h.split("").map(c => c + c).join("") : h, 16);
-    return [((bigint >> 16) & 255)/255, ((bigint >> 8) & 255)/255, (bigint & 255)/255];
+    const h = String(hex || "#000000").replace("#", "").trim();
+    const v = parseInt(h.length === 3 ? h.split("").map(c => c + c).join("") : h, 16);
+    return [((v >> 16) & 255) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255];
   }
 
+  function hookSlider(slider, out, decimals = 2) {
+    if (!slider || !out) return;
+    const update = () => (out.textContent = Number(slider.value).toFixed(decimals));
+    slider.addEventListener("input", update);
+    update();
+  }
+
+  hookSlider(ui.noise, ui.noiseVal);
+  hookSlider(ui.speed, ui.speedVal);
+  hookSlider(ui.mouseStrength, ui.mouseStrengthVal);
+  hookSlider(ui.mouseRadius, ui.mouseRadiusVal);
+  hookSlider(ui.banding, ui.bandingVal);
+  hookSlider(ui.grain, ui.grainVal);
+
   function randomPalette() {
-    // keep "Monopo-ish": one deep, one warm, one near-black, one cool
+    // "Monopo-ish": deep, warm, near-black, cool
     const deep = ["#1E2BFF","#223BFF","#2032C8","#1A2C8F"][Math.floor(Math.random()*4)];
     const warm = ["#FF6A2B","#FF5B1F","#E85B2F","#D85A38"][Math.floor(Math.random()*4)];
     const dark = ["#0B0B10","#0E0E12","#0A0A0E","#0D0D12"][Math.floor(Math.random()*4)];
@@ -278,19 +313,16 @@
     ui.c4.value = cool;
   }
 
-  ui.randomize.addEventListener("click", randomPalette);
+  if (ui.randomize) ui.randomize.addEventListener("click", randomPalette);
 
-  function hookSlider(slider, out) {
-    const update = () => (out.textContent = Number(slider.value).toFixed(2));
-    slider.addEventListener("input", update);
-    update();
-  }
+  // ---- Mouse smoothing
+  const mouse = { x: 0.5, y: 0.5 };
+  const mouseT = { x: 0.5, y: 0.5 };
 
-  hookSlider(ui.noise, ui.noiseVal);
-  hookSlider(ui.speed, ui.speedVal);
-  hookSlider(ui.mouseStrength, ui.mouseStrengthVal);
-  hookSlider(ui.banding, ui.bandingVal);
-  hookSlider(ui.grain, ui.grainVal);
+  window.addEventListener("mousemove", (e) => {
+    mouseT.x = e.clientX / window.innerWidth;
+    mouseT.y = 1.0 - (e.clientY / window.innerHeight);
+  });
 
   // ---- Embed generator
   function currentConfig() {
@@ -299,6 +331,7 @@
       noise: Number(ui.noise.value),
       speed: Number(ui.speed.value),
       mouseStrength: Number(ui.mouseStrength.value),
+      mouseRadius: Number(ui.mouseRadius.value),
       banding: Number(ui.banding.value),
       grain: Number(ui.grain.value),
       grainEnabled: ui.grainEnabled.checked,
@@ -308,48 +341,51 @@
   function generateEmbedSnippet() {
     const sel = (ui.embedSelector.value || "#my-gradient").trim();
     const cfg = currentConfig();
-    const json = JSON.stringify(cfg, null, 2);
 
-    // embed.js must be hosted alongside, or from your CDN
+    // Normalize for <div id="">
+    const id = sel.startsWith("#") ? sel.slice(1) : sel;
+
     return [
-      `<!-- Monopo-style gradient mount point -->`,
-      `<div id="${sel.startsWith("#") ? sel.slice(1) : sel}"></div>`,
+      `<!-- Gradient mount point -->`,
+      `<div id="${id}"></div>`,
       ``,
-      `<!-- Include the embed runtime -->`,
+      `<!-- Include embed runtime (host this file or change the src) -->`,
       `<script src="./embed.js"></script>`,
       ``,
-      `<!-- Mount with config -->`,
+      `<!-- Mount -->`,
       `<script>`,
-      `  MonopoGradient.mount(${JSON.stringify(sel)}, ${json});`,
+      `  MonopoGradient.mount(${JSON.stringify(sel)}, ${JSON.stringify(cfg, null, 2)});`,
       `</script>`
     ].join("\n");
   }
 
-  ui.generateEmbed.addEventListener("click", () => {
-    ui.embedOut.value = generateEmbedSnippet();
-  });
+  if (ui.embedOut) ui.embedOut.value = generateEmbedSnippet();
 
-  ui.copyEmbed.addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(ui.embedOut.value || generateEmbedSnippet());
-      ui.copyEmbed.textContent = "Copied!";
-      setTimeout(() => (ui.copyEmbed.textContent = "Copy"), 900);
-    } catch {
-      alert("Clipboard blocked. Copy manually from the textarea.");
-    }
-  });
+  if (ui.generateEmbed) {
+    ui.generateEmbed.addEventListener("click", () => {
+      ui.embedOut.value = generateEmbedSnippet();
+    });
+  }
 
-  // initialize embed textarea
-  ui.embedOut.value = generateEmbedSnippet();
+  if (ui.copyEmbed) {
+    ui.copyEmbed.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(ui.embedOut.value || generateEmbedSnippet());
+        ui.copyEmbed.textContent = "Copied!";
+        setTimeout(() => (ui.copyEmbed.textContent = "Copy"), 900);
+      } catch {
+        alert("Clipboard blocked. Copy manually from the textarea.");
+      }
+    });
+  }
 
-  // ---- Render
+  // ---- Render loop
   function render(ms) {
     resize();
 
-    // smooth mouse to feel premium
-    const lerp = 0.08;
-    state.mouse.x += (state.mouseTarget.x - state.mouse.x) * lerp;
-    state.mouse.y += (state.mouseTarget.y - state.mouse.y) * lerp;
+    // premium mouse smoothing
+    mouse.x += (mouseT.x - mouse.x) * 0.10;
+    mouse.y += (mouseT.y - mouse.y) * 0.10;
 
     gl.useProgram(prog);
 
@@ -359,7 +395,7 @@
 
     gl.uniform2f(loc.u_resolution, canvas.width, canvas.height);
     gl.uniform1f(loc.u_time, ms * 0.001);
-    gl.uniform2f(loc.u_mouse, state.mouse.x, state.mouse.y);
+    gl.uniform2f(loc.u_mouse, mouse.x, mouse.y);
 
     const [r1,g1,b1] = hexToRgb01(ui.c1.value);
     const [r2,g2,b2] = hexToRgb01(ui.c2.value);
@@ -374,7 +410,9 @@
     gl.uniform1f(loc.u_noise, Number(ui.noise.value));
     gl.uniform1f(loc.u_speed, Number(ui.speed.value));
     gl.uniform1f(loc.u_mouseStrength, Number(ui.mouseStrength.value));
+    gl.uniform1f(loc.u_mouseRadius, Number(ui.mouseRadius.value));
     gl.uniform1f(loc.u_banding, Number(ui.banding.value));
+
     gl.uniform1f(loc.u_grain, Number(ui.grain.value));
     gl.uniform1f(loc.u_grainEnabled, ui.grainEnabled.checked ? 1.0 : 0.0);
 
@@ -382,5 +420,6 @@
 
     requestAnimationFrame(render);
   }
+
   requestAnimationFrame(render);
 })();
