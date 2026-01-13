@@ -3,29 +3,92 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Interactive Gradient Tool (Monopo-style)</title>
+  <title>Monopo-style Gradient Tool</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <canvas id="c"></canvas>
+  <div class="stage">
+    <canvas id="bg" aria-hidden="true"></canvas>
 
-  <aside class="panel" id="panel">
-    <div class="panel__top">
-      <div class="brand">
-        <div class="brand__dot"></div>
-        <div class="brand__text">
-          <div class="brand__title">Gradient Tool</div>
-          <div class="brand__sub">Mouse lens • Flow warp • Grain</div>
+   
+
+    <!-- Control panel -->
+    <aside class="panel" id="panel">
+      <div class="panel__top">
+        <div class="panel__title">Gradient Tool</div>
+        <button class="iconbtn" id="togglePanel" aria-label="Toggle panel">☰</button>
+      </div>
+
+      <div class="group">
+        <div class="group__title">Colors</div>
+
+        <div class="row">
+          <label>Color 1</label>
+          <input type="color" id="c1" value="#223BFF" />
+        </div>
+        <div class="row">
+          <label>Color 2</label>
+          <input type="color" id="c2" value="#FF6A2B" />
+        </div>
+        <div class="row">
+          <label>Color 3</label>
+          <input type="color" id="c3" value="#0B0B10" />
+        </div>
+        <div class="row">
+          <label>Color 4</label>
+          <input type="color" id="c4" value="#9CB6C7" />
+        </div>
+
+        <div class="row">
+          <button class="btn" id="randomize">Randomize palette</button>
         </div>
       </div>
 
-      <button class="iconbtn" id="togglePanel" title="Toggle panel" aria-label="Toggle panel">☰</button>
-    </div>
+      <div class="group">
+        <div class="group__title">Motion</div>
 
-    <section class="section">
-      <div class="row">
-        <label class="label">Grain</label>
-        <div class="controls">
+        <div class="row">
+          <label for="noise">Flow strength</label>
+          <div class="ctrl">
+            <input id="noise" type="range" min="0" max="1.2" step="0.01" value="0.48" />
+            <span id="noiseVal" class="val">0.48</span>
+          </div>
+        </div>
+
+        <div class="row">
+          <label for="speed">Flow speed</label>
+          <div class="ctrl">
+            <input id="speed" type="range" min="0" max="2.5" step="0.01" value="0.35" />
+            <span id="speedVal" class="val">0.35</span>
+          </div>
+        </div>
+
+        <div class="row">
+          <label for="mouseStrength">Mouse influence</label>
+          <div class="ctrl">
+            <input id="mouseStrength" type="range" min="0" max="0.45" step="0.005" value="0.16" />
+            <span id="mouseStrengthVal" class="val">0.16</span>
+          </div>
+        </div>
+
+        <div class="row">
+          <label for="banding">Banding</label>
+          <div class="ctrl">
+            <input id="banding" type="range" min="0.3" max="2.2" step="0.01" value="1.15" />
+            <span id="bandingVal" class="val">1.15</span>
+          </div>
+        </div>
+
+        <div class="row">
+          <label for="grain">Grain</label>
+          <div class="ctrl">
+            <input id="grain" type="range" min="0" max="0.25" step="0.005" value="0.08" />
+            <span id="grainVal" class="val">0.08</span>
+          </div>
+        </div>
+
+        <div class="row">
+          <label class="switchLabel">Enable grain</label>
           <label class="switch">
             <input type="checkbox" id="grainEnabled" checked />
             <span class="slider"></span>
@@ -33,92 +96,31 @@
         </div>
       </div>
 
-      <div class="row">
-        <label class="label" for="grain">Grain amount</label>
-        <div class="controls">
-          <input id="grain" type="range" min="0" max="0.35" step="0.005" value="0.12" />
-          <span class="val" id="grainVal">0.12</span>
+      <div class="group">
+        <div class="group__title">Embed code</div>
+
+        <div class="row">
+          <label for="embedSelector">Mount selector</label>
+          <input id="embedSelector" class="text" type="text" value="#my-gradient" />
+        </div>
+
+        <div class="row">
+          <button class="btn btn--primary" id="generateEmbed">Generate</button>
+          <button class="btn btn--ghost" id="copyEmbed">Copy</button>
+        </div>
+
+        <textarea id="embedOut" class="textarea" rows="7" readonly></textarea>
+
+        <div class="hint">
+          Put <span class="mono">&lt;div id="my-gradient"&gt;&lt;/div&gt;</span> where you want it.
+          Include <span class="mono">embed.js</span> and the snippet.
         </div>
       </div>
+    </aside>
 
-      <div class="row">
-        <label class="label" for="flow">Flow strength</label>
-        <div class="controls">
-          <input id="flow" type="range" min="0" max="1.5" step="0.01" value="0.75" />
-          <span class="val" id="flowVal">0.75</span>
-        </div>
-      </div>
+    <div id="fatalOverlay" class="fatal" hidden></div>
+  </div>
 
-      <div class="row">
-        <label class="label" for="speed">Flow speed</label>
-        <div class="controls">
-          <input id="speed" type="range" min="0" max="2.5" step="0.01" value="0.85" />
-          <span class="val" id="speedVal">0.85</span>
-        </div>
-      </div>
-
-      <div class="row">
-        <label class="label" for="softness">Softness</label>
-        <div class="controls">
-          <input id="softness" type="range" min="0.8" max="7.0" step="0.05" value="2.4" />
-          <span class="val" id="softnessVal">2.40</span>
-        </div>
-      </div>
-    </section>
-
-    <section class="section">
-      <div class="section__header">
-        <div class="section__title">Mouse lens</div>
-      </div>
-
-      <div class="row">
-        <label class="label" for="lensSize">Lens size</label>
-        <div class="controls">
-          <input id="lensSize" type="range" min="0.05" max="0.28" step="0.005" value="0.14" />
-          <span class="val" id="lensSizeVal">0.14</span>
-        </div>
-      </div>
-
-      <div class="row">
-        <label class="label" for="lensPower">Lens power</label>
-        <div class="controls">
-          <input id="lensPower" type="range" min="0" max="1.3" step="0.01" value="0.85" />
-          <span class="val" id="lensPowerVal">0.85</span>
-        </div>
-      </div>
-
-      <div class="row">
-        <label class="label" for="lensRim">Rim</label>
-        <div class="controls">
-          <input id="lensRim" type="range" min="0" max="1.2" step="0.01" value="0.65" />
-          <span class="val" id="lensRimVal">0.65</span>
-        </div>
-      </div>
-    </section>
-
-    <section class="section">
-      <div class="section__header">
-        <div class="section__title">Color points</div>
-        <div class="section__actions">
-          <button class="btn" id="addPoint">+ Add</button>
-          <button class="btn btn--ghost" id="removePoint">– Remove</button>
-        </div>
-      </div>
-
-      <div class="hint">Click a point to select it. Drag on canvas to move it.</div>
-      <div id="pointsList" class="points"></div>
-    </section>
-
-    <section class="section">
-      <div class="export">
-        <button class="btn btn--primary" id="downloadPng">Download PNG</button>
-        <button class="btn btn--ghost" id="copyJson">Copy settings JSON</button>
-        <button class="btn btn--ghost" id="randomize">Randomize</button>
-      </div>
-      <div class="small">Tip: deploy with GitHub Pages (static).</div>
-    </section>
-  </aside>
-
-  <script type="module" src="./main.js"></script>
+  <script src="./main.js"></script>
 </body>
 </html>
