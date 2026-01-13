@@ -97,122 +97,129 @@
   // Static grain: uses ONLY gl_FragCoord.xy (no time)
   // Focused mouse: gaussian falloff around pointer + small swirl
   const fragSrc = `
-    precision highp float;
-    varying vec2 v_uv;
+precision highp float;
+varying vec2 v_uv;
 
-    uniform vec2 u_resolution;
-    uniform float u_time;
-    uniform vec2 u_mouse;
+uniform vec2 u_resolution;
+uniform float u_time;
+uniform vec2 u_mouse;
 
-    uniform vec3 c1;
-    uniform vec3 c2;
-    uniform vec3 c3;
-    uniform vec3 c4;
+uniform vec3 c1;
+uniform vec3 c2;
+uniform vec3 c3;
+uniform vec3 c4;
 
-    uniform float u_noise;
-    uniform float u_speed;
-    uniform float u_grain;
-    uniform float u_grainEnabled;
+uniform float u_noise;
+uniform float u_speed;
+uniform float u_grain;
+uniform float u_grainEnabled;
 
-    uniform float u_mouseStrength; // "Focus"
-    uniform float u_mouseRadius;   // localized radius
-    uniform float u_banding;
+uniform float u_mouseStrength; // "Focus"
+uniform float u_mouseRadius;   // radius
+uniform float u_banding;
 
-    float hash(vec2 p) {
-      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
-    }
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
 
-    float noise(vec2 p) {
-      vec2 i = floor(p);
-      vec2 f = fract(p);
-      float a = hash(i);
-      float b = hash(i + vec2(1.0, 0.0));
-      float c = hash(i + vec2(0.0, 1.0));
-      float d = hash(i + vec2(1.0, 1.0));
-      vec2 u = f*f*(3.0 - 2.0*f);
-      return mix(a, b, u.x) +
-             (c - a) * u.y * (1.0 - u.x) +
-             (d - b) * u.x * u.y;
-    }
+float noise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  float a = hash(i);
+  float b = hash(i + vec2(1.0, 0.0));
+  float c = hash(i + vec2(0.0, 1.0));
+  float d = hash(i + vec2(1.0, 1.0));
+  vec2 u = f*f*(3.0 - 2.0*f);
+  return mix(a, b, u.x) +
+         (c - a) * u.y * (1.0 - u.x) +
+         (d - b) * u.x * u.y;
+}
 
-    float fbm(vec2 p) {
-      float v = 0.0;
-      float a = 0.5;
-      for (int i=0; i<5; i++){
-        v += a * noise(p);
-        p *= 2.02;
-        a *= 0.5;
-      }
-      return v;
-    }
+float fbm(vec2 p) {
+  float v = 0.0;
+  float a = 0.5;
+  for (int i=0; i<5; i++){
+    v += a * noise(p);
+    p *= 2.02;
+    a *= 0.5;
+  }
+  return v;
+}
 
-    float gauss(float d, float r){
-      float rr = max(1e-5, r*r);
-      return exp(-(d*d)/rr);
-    }
+// Soft falloff with no “edge”
+float falloff(vec2 p, vec2 c, float r){
+  float d = distance(p, c);
+  float f = smoothstep(r, 0.0, d);   // 1 at center -> 0 at radius
+  // soften further so it doesn't read like a spotlight
+  return f * f * (3.0 - 2.0 * f);    // smootherstep
+}
 
-    void main(){
-      vec2 uv = v_uv;
+void main(){
+  vec2 uv = v_uv;
 
-      float aspect = u_resolution.x / u_resolution.y;
-      vec2 uva = uv;
-      uva.x *= aspect;
+  float aspect = u_resolution.x / u_resolution.y;
 
-      float t = u_time * u_speed;
+  // aspect space
+  vec2 uva = uv;
+  uva.x *= aspect;
 
-      // Global slow flow warp
-      vec2 flow = vec2(
-        fbm(uva * 1.35 + vec2(0.0, t * 0.18)),
-        fbm(uva * 1.35 + vec2(10.0, -t * 0.16))
-      );
-      uva += (flow - 0.5) * u_noise;
+  float t = u_time * u_speed;
 
-      // Focused mouse influence (localized)
-      vec2 ma = u_mouse;
-      ma.x *= aspect;
+  // Global slow flow warp
+  vec2 flow = vec2(
+    fbm(uva * 1.35 + vec2(0.0, t * 0.18)),
+    fbm(uva * 1.35 + vec2(10.0, -t * 0.16))
+  );
+  uva += (flow - 0.5) * u_noise;
 
-      float d = distance(uva, ma);
-      float f = gauss(d, u_mouseRadius);
+  // Mouse (aspect space)
+  vec2 ma = u_mouse;
+  ma.x *= aspect;
 
-      vec2 dir = normalize(uva - ma + 1e-6);
-      vec2 tanv = vec2(-dir.y, dir.x);
+  // Localized "pressure" — NO radial push (avoids cone look)
+  float f = falloff(uva, ma, u_mouseRadius);
 
-      float push = u_mouseStrength * f * 0.18;
-      float swirl = u_mouseStrength * f * 0.10 * sin(t * 0.9);
+  // Two noise samples create a soft vector field around the cursor
+  // This looks like liquid displacement rather than a beam
+  vec2 field;
+  field.x = fbm(uva * 2.20 + ma * 2.0 + vec2( 0.0, t * 0.35)) - 0.5;
+  field.y = fbm(uva * 2.20 + ma * 2.0 + vec2(12.3, -t * 0.30)) - 0.5;
 
-      uva += dir * push + tanv * swirl;
+  // Strength scaled smoothly by f
+  float amt = u_mouseStrength * 0.10 * f;
+  uva += field * amt;
 
-      // Directional band gradients
-      float g1 = smoothstep(0.0, 1.0, uva.y);
-      float g2 = smoothstep(0.0, 1.0, uva.x / aspect);
-      float g3 = smoothstep(0.0, 1.0, (uva.y + (uva.x / aspect)) * 0.5);
+  // Directional band gradients
+  float g1 = smoothstep(0.0, 1.0, uva.y);
+  float g2 = smoothstep(0.0, 1.0, uva.x / aspect);
+  float g3 = smoothstep(0.0, 1.0, (uva.y + (uva.x / aspect)) * 0.5);
 
-      g1 = pow(g1, u_banding);
-      g2 = pow(g2, u_banding * 0.92);
-      g3 = pow(g3, u_banding * 1.05);
+  g1 = pow(g1, u_banding);
+  g2 = pow(g2, u_banding * 0.92);
+  g3 = pow(g3, u_banding * 1.05);
 
-      vec3 col = mix(c1, c2, g1);
-      col = mix(col, c3, g2 * 0.85);
-      col = mix(col, c4, g3 * 0.80);
+  vec3 col = mix(c1, c2, g1);
+  col = mix(col, c3, g2 * 0.85);
+  col = mix(col, c4, g3 * 0.80);
 
-      // subtle softness/contrast
-      col = pow(col, vec3(0.96));
-      col *= 1.03;
+  // subtle softness/contrast
+  col = pow(col, vec3(0.96));
+  col *= 1.03;
 
-      // vignette
-      vec2 p = (uv - 0.5);
-      float vig = smoothstep(0.95, 0.25, dot(p,p));
-      col *= mix(0.80, 1.0, vig);
+  // vignette
+  vec2 p = (uv - 0.5);
+  float vig = smoothstep(0.95, 0.25, dot(p,p));
+  col *= mix(0.80, 1.0, vig);
 
-      // STATIC grain (pinned to pixels)
-      if (u_grainEnabled > 0.5) {
-        float g = hash(gl_FragCoord.xy) - 0.5;
-        col += g * u_grain;
-      }
+  // STATIC grain (no time input)
+  if (u_grainEnabled > 0.5) {
+    float g = hash(gl_FragCoord.xy) - 0.5;
+    col += g * u_grain;
+  }
 
-      gl_FragColor = vec4(col, 1.0);
-    }
-  `;
+  gl_FragColor = vec4(col, 1.0);
+}
+`;
 
   function compile(type, src) {
     const s = gl.createShader(type);
