@@ -1,6 +1,6 @@
 /*  Gradient Tool
    - Directional band gradients + slow flow warp
-   - Focused mouse "pressure" (localized) + subtle swirl
+   - Focused  "pressure" (localized) + subtle swirl
    - Static grain (pinned to pixels; no movement)
    - Minimal UI hooks + embed snippet generator (uses embed.js)
 */
@@ -24,11 +24,11 @@
     speed: document.getElementById("speed"),
     speedVal: document.getElementById("speedVal"),
 
-    mouseStrength: document.getElementById("mouseStrength"),
-    mouseStrengthVal: document.getElementById("mouseStrengthVal"),
+    Strength: document.getElementById("Strength"),
+    StrengthVal: document.getElementById("StrengthVal"),
 
-    mouseRadius: document.getElementById("mouseRadius"),
-    mouseRadiusVal: document.getElementById("mouseRadiusVal"),
+    Radius: document.getElementById("Radius"),
+    RadiusVal: document.getElementById("RadiusVal"),
 
     banding: document.getElementById("banding"),
     bandingVal: document.getElementById("bandingVal"),
@@ -95,14 +95,14 @@
   `;
 
   // Static grain: uses ONLY gl_FragCoord.xy (no time)
-  // Focused mouse: gaussian falloff around pointer + small swirl
+  // Focused : gaussian falloff around pointer + small swirl
   const fragSrc = `
 precision highp float;
 varying vec2 v_uv;
 
 uniform vec2 u_resolution;
 uniform float u_time;
-uniform vec2 u_mouse;
+uniform vec2 u_;
 
 uniform vec3 c1;
 uniform vec3 c2;
@@ -114,8 +114,8 @@ uniform float u_speed;
 uniform float u_grain;
 uniform float u_grainEnabled;
 
-uniform float u_mouseStrength; // "Focus"
-uniform float u_mouseRadius;   // radius
+uniform float u_Strength; // "Focus"
+uniform float u_Radius;   // radius
 uniform float u_banding;
 
 float hash(vec2 p) {
@@ -168,16 +168,16 @@ void main(){
   // Global slow flow warp
   vec2 flow = vec2(
     fbm(uva * 1.35 + vec2(0.0, t * 0.18)),
-    fbm(uva * 1.35 + vec2(10.0, -t * 0.16))
+    fbm(uva * 1.35 + vec2(10.0, -t * 0.12))
   );
   uva += (flow - 0.5) * u_noise;
 
-  // Mouse (aspect space)
-  vec2 ma = u_mouse;
+  //  (aspect space)
+  vec2 ma = u_;
   ma.x *= aspect;
 
   // Localized "pressure" — NO radial push (avoids cone look)
-  float f = falloff(uva, ma, u_mouseRadius);
+  float f = falloff(uva, ma, u_Radius);
 
   // Two noise samples create a soft vector field around the cursor
   // This looks like liquid displacement rather than a beam
@@ -186,7 +186,7 @@ void main(){
   field.y = fbm(uva * 2.20 + ma * 2.0 + vec2(12.3, -t * 0.30)) - 0.5;
 
   // Strength scaled smoothly by f
-  float amt = u_mouseStrength * 0.10 * f;
+  float amt = u_Strength * 0.10 * f;
   uva += field * amt;
 
   // Directional band gradients
@@ -270,7 +270,7 @@ void main(){
 
     u_resolution: gl.getUniformLocation(prog, "u_resolution"),
     u_time: gl.getUniformLocation(prog, "u_time"),
-    u_mouse: gl.getUniformLocation(prog, "u_mouse"),
+    u_: gl.getUniformLocation(prog, "u_"),
 
     c1: gl.getUniformLocation(prog, "c1"),
     c2: gl.getUniformLocation(prog, "c2"),
@@ -282,8 +282,8 @@ void main(){
     u_grain: gl.getUniformLocation(prog, "u_grain"),
     u_grainEnabled: gl.getUniformLocation(prog, "u_grainEnabled"),
 
-    u_mouseStrength: gl.getUniformLocation(prog, "u_mouseStrength"),
-    u_mouseRadius: gl.getUniformLocation(prog, "u_mouseRadius"),
+    u_Strength: gl.getUniformLocation(prog, "u_Strength"),
+    u_Radius: gl.getUniformLocation(prog, "u_Radius"),
     u_banding: gl.getUniformLocation(prog, "u_banding"),
   };
 
@@ -303,8 +303,8 @@ void main(){
 
   hookSlider(ui.noise, ui.noiseVal);
   hookSlider(ui.speed, ui.speedVal);
-  hookSlider(ui.mouseStrength, ui.mouseStrengthVal);
-  hookSlider(ui.mouseRadius, ui.mouseRadiusVal);
+  hookSlider(ui.Strength, ui.StrengthVal);
+  hookSlider(ui.Radius, ui.RadiusVal);
   hookSlider(ui.banding, ui.bandingVal);
   hookSlider(ui.grain, ui.grainVal);
 
@@ -322,13 +322,13 @@ void main(){
 
   if (ui.randomize) ui.randomize.addEventListener("click", randomPalette);
 
-  // ---- Mouse smoothing
-  const mouse = { x: 0.5, y: 0.5 };
-  const mouseT = { x: 0.5, y: 0.5 };
+  // ----  smoothing
+  const  = { x: 0.5, y: 0.5 };
+  const T = { x: 0.5, y: 0.5 };
 
-  window.addEventListener("mousemove", (e) => {
-    mouseT.x = e.clientX / window.innerWidth;
-    mouseT.y = 1.0 - (e.clientY / window.innerHeight);
+  window.addEventListener("move", (e) => {
+    T.x = e.clientX / window.innerWidth;
+    T.y = 1.0 - (e.clientY / window.innerHeight);
   });
 
   // ---- Embed generator
@@ -337,8 +337,8 @@ void main(){
       colors: [ui.c1.value, ui.c2.value, ui.c3.value, ui.c4.value],
       noise: Number(ui.noise.value),
       speed: Number(ui.speed.value),
-      mouseStrength: Number(ui.mouseStrength.value),
-      mouseRadius: Number(ui.mouseRadius.value),
+      Strength: Number(ui.Strength.value),
+      Radius: Number(ui.Radius.value),
       banding: Number(ui.banding.value),
       grain: Number(ui.grain.value),
       grainEnabled: ui.grainEnabled.checked,
@@ -390,9 +390,9 @@ void main(){
   function render(ms) {
     resize();
 
-    // premium mouse smoothing
-    mouse.x += (mouseT.x - mouse.x) * 0.10;
-    mouse.y += (mouseT.y - mouse.y) * 0.10;
+    // premium  smoothing
+    .x += (T.x - .x) * 0.10;
+    .y += (T.y - .y) * 0.10;
 
     gl.useProgram(prog);
 
@@ -402,7 +402,7 @@ void main(){
 
     gl.uniform2f(loc.u_resolution, canvas.width, canvas.height);
     gl.uniform1f(loc.u_time, ms * 0.001);
-    gl.uniform2f(loc.u_mouse, mouse.x, mouse.y);
+    gl.uniform2f(loc.u_, .x, .y);
 
     const [r1,g1,b1] = hexToRgb01(ui.c1.value);
     const [r2,g2,b2] = hexToRgb01(ui.c2.value);
@@ -416,8 +416,8 @@ void main(){
 
     gl.uniform1f(loc.u_noise, Number(ui.noise.value));
     gl.uniform1f(loc.u_speed, Number(ui.speed.value));
-    gl.uniform1f(loc.u_mouseStrength, Number(ui.mouseStrength.value));
-    gl.uniform1f(loc.u_mouseRadius, Number(ui.mouseRadius.value));
+    gl.uniform1f(loc.u_Strength, Number(ui.Strength.value));
+    gl.uniform1f(loc.u_Radius, Number(ui.Radius.value));
     gl.uniform1f(loc.u_banding, Number(ui.banding.value));
 
     gl.uniform1f(loc.u_grain, Number(ui.grain.value));
